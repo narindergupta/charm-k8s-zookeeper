@@ -1,0 +1,49 @@
+version: 2
+service:
+  scalePolicy: serial
+containers:
+  - name: %(name)s
+    image: %(docker_image_path)s
+    kubernetes:
+      readinessProbe:
+        tcpSocket:
+          port: %(client-port)s
+        initialDelaySeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 6
+        successThreshold: 1
+      livenessProbe:
+        tcpSocket:
+          port: %(client-port)s
+        initialDelaySeconds: 20
+    ports:
+    - containerPort: %(server-port)s
+      name: server
+    - containerPort: %(client-port)s
+      name: client
+    - containerPort: %(leader-election-port)s
+      name: leader-election
+    config:
+        ALLOW_ANONYMOUS_LOGIN: 'yes'
+        JMXPORT: 9999
+    command:
+    - sh
+    - -c
+    - "start-zookeeper \
+      --servers=%(zookeeper-units)s \
+      --data_dir=/var/lib/zookeeper/data \
+      --data_log_dir=/var/lib/zookeeper/data/log \
+      --conf_dir=/opt/zookeeper/conf \
+      --client_port=%(client-port)s \
+      --election_port=%(leader-election-port)s \
+      --server_port=%(server-port)s \
+      --tick_time=2000 \
+      --init_limit=10 \
+      --sync_limit=5 \
+      --heap=512M \
+      --max_client_cnxns=60 \
+      --snap_retain_count=%(zookeeper-units)s \
+      --purge_interval=12 \
+      --max_session_timeout=40000 \
+      --min_session_timeout=4000 \
+      --log_level=INFO"

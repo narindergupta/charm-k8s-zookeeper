@@ -1,0 +1,21 @@
+"options":
+  "client-port":
+    "description": "Zookeeper client port"
+    "type": "int"
+    "default": !!int "2181"
+  "server-port":
+    "description": "Zookeeper server port"
+    "type": "int"
+    "default": !!int "2888"
+  "leader-election-port":
+    "description": "Zookeeper leader-election port"
+    "type": "int"
+    "default": !!int "3888"
+  "image":
+    "description": "Zookeeper image to use"
+    "type": "string"
+    "default": "rocks.canonical.com:443/k8s.gcr.io/kubernetes-zookeeper:1.0-3.4.10"
+  "ha-mode":
+    "type": "boolean"
+    "description": "Indicates if the charm should have the capabilities to scale"
+    "default": !!bool "false"
