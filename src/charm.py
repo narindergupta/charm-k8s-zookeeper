@@ -47,7 +47,7 @@ class ZookeeperCharm(CharmBase):
         super().__init__(framework, key)
 
         self.framework.observe(self.on.start, self)
-        self.framework.observe(self.on.stop, self)
+#        self.framework.observe(self.on.stop, self)
         self.framework.observe(self.on.update_status, self)
         self.framework.observe(self.on.upgrade_charm, self)
         self.framework.observe(self.on.config_changed, self)
@@ -67,19 +67,13 @@ class ZookeeperCharm(CharmBase):
 
     def on_start(self, event):
         logging.info('START')
-        self.model.unit.status = MaintenanceStatus('Starting pod')
         if (self.model.pod._backend.is_leader()):
 #        if not self.model.config['ha-mode']:
+            #self.model.unit.status = MaintenanceStatus('Starting pod')
             podSpec = self.makePodSpec()
             self.model.pod.set_spec(podSpec)
             self.state.podSpec = podSpec
-            if self._pod.is_ready:
-                self.state.isStarted = True
-                self.model.unit.status = ActiveStatus('ready')
-                logging.info('Pod is ready')
-                return
-            self.model.unit.status = MaintenanceStatus('Pod is not ready')
-            logging.info('Pod is not ready')
+        self.on.config_changed.emit()
 
     def expose_relation_data(self, event):
         logging.info('Data Exposed')
@@ -89,9 +83,7 @@ class ZookeeperCharm(CharmBase):
         self.client.set_port(self.model.config['client-port'])
         self.client.set_rest_port(self.model.config['client-port'])
         self.client.expose_zookeeper()
-
-    def on_stop(self, event):
-        logging.info('STOP')
+        self.on.config_changed.emit()
 
     def on_upgrade_charm(self, event):
         logging.info('UPGRADE')
@@ -99,6 +91,7 @@ class ZookeeperCharm(CharmBase):
 
     def on_leader_elected(self, event):
         logging.info('LEADER ELECTED')
+        self.on.config_changed.emit()
 
     def getUnits(self):
         logging.info('get_units')
@@ -110,42 +103,32 @@ class ZookeeperCharm(CharmBase):
                 self._unit = 1
             else:
                 self._unit =  len(peer_relation.units) + 1
-        if self._unit != units:
-            self.on.config_changed.emit()
+        self.on.update_status.emit()
 
     def on_cluster_modified(self, event):
         logging.info('on_cluster_modified')
-        self.getUnits()
+        self.on.config_changed.emit()
 
     def on_update_status(self, event):
         logging.info('UPDATE STATUS')
-        if (self.model.pod._backend.is_leader()):
-            if self._pod.is_ready:
+        if self._pod.is_ready:
+            logging.info('Pod is ready')
+            self.state.isStarted = True
+            if (self.model.pod._backend.is_leader()):
                 self.model.unit.status = ActiveStatus('ready')
-        else:
-            if self._pod.is_ready:
+            else:
                 self.model.unit.status = ActiveStatus('ready Not a Leader')
-        relation = self.model.get_relation('zookeeper')
-        if relation is not None:
-            logging.info(relation.data[self.model.unit].get('host'))
 
     def on_config_changed(self, event):
         logging.info('CONFIG CHANGED')
-        self.model.unit.status = MaintenanceStatus('config changing')
-        if (self.model.pod._backend.is_leader()):
-            self.getUnits()
-            podSpec = self.makePodSpec()
-            if self.state.podSpec != podSpec:
-                self.model.unit.status = MaintenanceStatus('Configuring pod')
-                self.model.pod.set_spec(podSpec)
-                self.state.podSpec = podSpec
-                if self._pod.is_ready:
-                    self.state.isStarted = True
-                    self.model.unit.status = ActiveStatus('ready')
-        else:
-            if self._pod.is_ready:
-                self.state.isStarted = True
-                self.model.unit.status = ActiveStatus('ready Not a Leader')
+        if self._pod.is_ready:
+            if (self.model.pod._backend.is_leader()):
+                self.getUnits()
+                podSpec = self.makePodSpec()
+                if self.state.podSpec != podSpec:
+                    self.model.pod.set_spec(podSpec)
+                    self.state.podSpec = podSpec
+        self.on.update_status.emit()
 
     def on_new_client(self, event):
         logging.info('NEW CLIENT')
